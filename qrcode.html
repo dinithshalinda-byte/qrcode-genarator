@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>රූපයට QR Code - Free App</title>
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QR Code Generator Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js">
+    </script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-100">
+        
+        <!-- Header -->
+        <div class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">📸 රූපය Upload කරන්න</h1>
+            <p class="text-gray-500 text-sm">Image එකක් දාලා QR Code එකක් Generate කරගන්න</p>
+        </div>
+
+        <!-- Upload Area -->
+        <label for="imageInput" class="cursor-pointer">
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-2xl p-8 hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-300">
+                <!-- Placeholder Icon & Text -->
+                <div id="placeholderArea">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="mt-3 text-sm text-gray-500">මෙතන Click කරන්න හෝ Image එක Drop කරන්න</p>
+                    <p class="text-xs text-gray-400 mt-1">PNG, JPG, GIF (Max: 32MB)</p>
+                </div>
+                <!-- Preview Image -->
+                <img id="preview" class="max-h-48 mx-auto hidden rounded-xl shadow-md" />
+            </div>
+            <input type="file" id="imageInput" accept="image/*" class="hidden" />
+        </label>
+
+        <!-- Status Message -->
+        <div id="status" class="mt-5 text-sm font-medium text-indigo-600 bg-indigo-50 py-2 px-4 rounded-lg hidden"></div>
+
+        <!-- Result Area -->
+        <div id="resultArea" class="mt-6 hidden">
+            <p class="text-gray-700 font-semibold mb-3">✅ ඔබේ QR Code එක</p>
+            <div class="bg-gray-50 p-4 rounded-xl inline-block">
+                <canvas id="qrCanvas" class="mx-auto"></canvas>
+            </div>
+            
+            <!-- Download Button -->
+            <a id="downloadLink" class="mt-4 inline-flex items-center bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer font-medium">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                QR Code Download කරන්න
+            </a>
+
+            <!-- Image Link -->
+            <div class="mt-5 bg-gray-50 p-3 rounded-xl text-left">
+                <p class="text-xs text-gray-500 mb-1">🔗 Image එකේ Link එක:</p>
+                <a id="imageLink" href="#" target="_blank" class="text-indigo-600 underline text-sm break-all font-mono"></a>
+                <button onclick="copyLink()" class="mt-2 text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-lg transition">📋 Link Copy කරන්න</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-xs text-gray-400 mt-8">Powered by ImgBB | 100% Free</p>
+    </div>
+
+    <script>
+        // ⚠️ පහල තියෙන YOUR_IMGBB_API_KEY_HERE කියන එක මකලා, ඔබේ API Key එක Paste කරන්න!
+        const IMGBB_API_KEY = "0e9b572a165894b21756837d58eda96f";
+
+        // DOM Elements
+        const imageInput = document.getElementById('imageInput');
+        const dropZone = document.getElementById('dropZone');
+        const placeholderArea = document.getElementById('placeholderArea');
+        const preview = document.getElementById('preview');
+        const statusDiv = document.getElementById('status');
+        const resultArea = document.getElementById('resultArea');
+        const qrCanvas = document.getElementById('qrCanvas');
+        const downloadLink = document.getElementById('downloadLink');
+        const imageLink = document.getElementById('imageLink');
+
+        // File Input Change Event
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        });
+
+        // Drag & Drop Events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-indigo-500', 'bg-indigo-50');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processFile(file);
+            } else {
+                alert('❌ කරුණාකර Image File එකක් පමණක් Drop කරන්න!');
+            }
+        });
+
+        // Process Selected File
+        function processFile(file) {
+            // Size Check (32MB limit for ImgBB free)
+            if (file.size > 32 * 1024 * 1024) {
+                alert('❌ File Size එක 32MB ට වැඩියි. කරුණාකර කුඩා Image එකක් තෝරන්න.');
+                return;
+            }
+
+            // Show Preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+                placeholderArea.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+
+            // Upload to ImgBB
+            uploadToImgBB(file);
+        }
+
+        // Upload Function
+        function uploadToImgBB(file) {
+            statusDiv.innerHTML = '⏳ Upload වෙමින් පවතී...';
+            statusDiv.classList.remove('hidden');
+            resultArea.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // ImgBB API Call
+            fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const imageUrl = data.data.url;
+                        statusDiv.innerHTML = '✅ Upload සාර්ථකයි! QR Code හදමින්...';
+                        generateQRCode(imageUrl);
+                    } else {
+                        statusDiv.innerHTML = '❌ Upload කිරීම අසාර්ථකයි! නැවත උත්සාහ කරන්න.';
+                        console.error('ImgBB Error:', data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Network Error:', error);
+                    statusDiv.innerHTML = '❌ Network දෝෂයක්! Internet Connection Check කරන්න.';
+                });
+        }
+
+        // Generate QR Code
+        function generateQRCode(url) {
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+                resultArea.classList.remove('hidden');
+
+                // QR Code Canvas එකට Draw කරනවා
+                QRCode.toCanvas(qrCanvas, url, {
+                    width: 220,
+                    margin: 2,
+                    color: {
+                        dark: '#1F2937',
+                        light: '#FFFFFF'
+                    }
+                }, (error) => {
+                    if (error) {
+                        console.error('QR Error:', error);
+                        alert('QR Code Generate කිරීම අසාර්ථකයි!');
+                    }
+                });
+
+                // Image Link Setup
+                imageLink.href = url;
+                imageLink.textContent = url;
+
+                // Download Button Setup
+                downloadLink.onclick = () => {
+                    const qrImage = qrCanvas.toDataURL("image/png");
+                    downloadLink.href = qrImage;
+                    downloadLink.download = 'my-qr-code.png';
+                };
+            }, 500); // Little delay for smooth UI
+        }
+
+        // Copy Link Function
+        function copyLink() {
+            const linkText = imageLink.textContent;
+            navigator.clipboard.writeText(linkText).then(() => {
+                alert('✅ Link Copy කරා!');
+            }).catch(() => {
+                alert('❌ Copy කරන්න බැහැ. අතින් Copy කරගන්න.');
+            });
+        }
+    </script>
+</body>
+</html>
